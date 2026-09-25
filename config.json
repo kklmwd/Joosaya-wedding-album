@@ -1,0 +1,12 @@
+{
+  "eventTitle": "Our Wedding",
+  "coupleNames": "Alex & Sam",
+  "eventDate": "2026-11-14",
+  "cloudinary": {
+    "cloudName": "YOUR_CLOUD_NAME",
+    "uploadPreset": "YOUR_UNSIGNED_UPLOAD_PRESET",
+    "folder": "wedding-photos"
+  },
+  "accentColor": "#b8865b",
+  "backgroundColor": "#fdf8f3"
+}
