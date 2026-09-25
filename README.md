@@ -15,7 +15,7 @@ Fill in:
 - `coupleNames`, `eventDate`, `eventTitle` — shown on the page
 
 ## 3. Deploy to GitHub Pages
-1. Create a new GitHub repo, upload `index.html`, `config.json` (and this README).
+1. Create a new GitHub repo, upload `index-1.html`, `config.json` (and this README).
 2. Repo **Settings → Pages → Deploy from branch → main → / (root)**.
 3. Your site will be live at `https://<username>.github.io/<repo>/`.
 
