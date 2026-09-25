@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wedding Photo Upload</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --accent:#b8865b;
+    --bg:#fdf8f3;
+    --card:#ffffff;
+    --text:#2e2925;
+    --muted:#8a7f74;
+    --ok:#5f8f6f;
+    --err:#c0564f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100%;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  .wrap{
+    max-width:480px;
+    margin:0 auto;
+    padding:48px 24px 40px;
+    text-align:center;
+  }
+  h1{
+    font-family:'Cormorant Garamond',serif;
+    font-weight:600;
+    font-size:2.4rem;
+    margin:0 0 4px;
+    letter-spacing:0.5px;
+  }
+  .date{
+    color:var(--muted);
+    font-size:0.95rem;
+    margin-bottom:36px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+  }
+  .subtitle{
+    color:var(--muted);
+    font-size:0.98rem;
+    margin-bottom:32px;
+    line-height:1.5;
+  }
+  .btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    width:100%;
+    padding:18px 20px;
+    margin-bottom:14px;
+    border:none;
+    border-radius:14px;
+    font-family:'Inter',sans-serif;
+    font-size:1.05rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:transform 0.1s ease, opacity 0.2s ease;
+  }
+  .btn:active{transform:scale(0.98);}
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-secondary{background:var(--card); color:var(--text); border:1.5px solid #e6ddd2;}
+  .btn-ghost{background:transparent; color:var(--muted); font-weight:500; font-size:0.9rem; padding:10px;}
+  input[type=file]{display:none;}
+  .status{
+    margin-top:22px;
+    min-height:24px;
+    font-size:0.92rem;
+  }
+  .status.ok{color:var(--ok);}
+  .status.err{color:var(--err);}
+  .thumbs{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-top:24px;
+  }
+  .thumbs img{
+    width:100%;
+    aspect-ratio:1/1;
+    object-fit:cover;
+    border-radius:10px;
+    opacity:0.5;
+  }
+  .thumbs img.done{opacity:1;}
+  .qr-panel{
+    margin-top:36px;
+    padding-top:28px;
+    border-top:1px solid #e6ddd2;
+  }
+  #qrcode{
+    display:inline-block;
+    padding:12px;
+    background:#fff;
+    border-radius:12px;
+    margin-top:14px;
+  }
+  .setup-warning{
+    background:#fff4e5;
+    border:1px solid #f0c98a;
+    color:#7a5a10;
+    border-radius:10px;
+    padding:14px 16px;
+    font-size:0.88rem;
+    margin-bottom:24px;
+    text-align:left;
+    line-height:1.5;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#211d1a;
+      --card:#2b2521;
+      --text:#f2ece5;
+      --muted:#a89c8d;
+    }
+    .btn-secondary{border-color:#3c342c;}
+    .qr-panel{border-top-color:#3c342c;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="setupWarning"></div>
+
+  <h1 id="coupleNames">Loading…</h1>
+  <div class="date" id="eventDate"></div>
+  <p class="subtitle">Take a photo or pick some from your gallery — they'll land straight in our shared wedding album. Thank you for celebrating with us!</p>
+
+  <input type="file" id="cameraInput" accept="image/*" capture="environment">
+  <input type="file" id="galleryInput" accept="image/*" multiple>
+
+  <button class="btn btn-primary" id="takePhotoBtn">📷 Take a Photo</button>
+  <button class="btn btn-secondary" id="chooseGalleryBtn">🖼️ Upload from Gallery</button>
+
+  <div class="status" id="status"></div>
+  <div class="thumbs" id="thumbs"></div>
+
+  <div class="qr-panel">
+    <button class="btn btn-ghost" id="toggleQr">Show QR code for printing / display</button>
+    <div id="qrcode" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+let CONFIG = null;
+
+async function loadConfig(){
+  try{
+    const res = await fetch('config.json', {cache:'no-store'});
+    CONFIG = await res.json();
+  }catch(e){
+    CONFIG = {eventTitle:'Our Wedding', coupleNames:'The Couple', eventDate:'', cloudinary:{cloudName:'',uploadPreset:''}};
+  }
+  document.getElementById('coupleNames').textContent = CONFIG.coupleNames || CONFIG.eventTitle || 'Our Wedding';
+  if (CONFIG.eventDate){
+    const d = new Date(CONFIG.eventDate + 'T00:00:00');
+    if (!isNaN(d)) document.getElementById('eventDate').textContent =
+      d.toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'});
+  }
+  document.documentElement.style.setProperty('--accent', CONFIG.accentColor || '#b8865b');
+  document.body.style.background = CONFIG.backgroundColor || '';
+
+  const cloud = CONFIG.cloudinary || {};
+  if (!cloud.cloudName || cloud.cloudName === 'YOUR_CLOUD_NAME' || !cloud.uploadPreset){
+    document.getElementById('setupWarning').innerHTML =
+      '<div class="setup-warning"><strong>Setup needed:</strong> edit <code>config.json</code> with your Cloudinary <code>cloudName</code> and an unsigned <code>uploadPreset</code> before sharing this link with guests. See the README for the 2-minute setup.</div>';
+    document.getElementById('takePhotoBtn').disabled = true;
+    document.getElementById('chooseGalleryBtn').disabled = true;
+  }
+}
+
+function setStatus(msg, cls){
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + (cls || '');
+}
+
+function addThumb(file){
+  const img = document.createElement('img');
+  img.src = URL.createObjectURL(file);
+  document.getElementById('thumbs').prepend(img);
+  return img;
+}
+
+async function uploadFile(file){
+  const img = addThumb(file);
+  const cloud = CONFIG.cloudinary;
+  const url = `https://api.cloudinary.com/v1_1/${cloud.cloudName}/image/upload`;
+  const form = new FormData();
+  form.append('file', file);
+  form.append('upload_preset', cloud.uploadPreset);
+  if (cloud.folder) form.append('folder', cloud.folder);
+
+  try{
+    const res = await fetch(url, {method:'POST', body:form});
+    if (!res.ok) throw new Error('Upload failed');
+    img.classList.add('done');
+    return true;
+  }catch(e){
+    img.style.outline = '2px solid var(--err)';
+    return false;
+  }
+}
+
+async function handleFiles(fileList){
+  const files = Array.from(fileList);
+  if (!files.length) return;
+  setStatus(`Uploading ${files.length} photo${files.length>1?'s':''}…`);
+  let success = 0;
+  for (const file of files){
+    if (await uploadFile(file)) success++;
+  }
+  if (success === files.length){
+    setStatus('All photos uploaded — thank you! 💛', 'ok');
+  } else if (success > 0){
+    setStatus(`${success} of ${files.length} uploaded. Please retry the rest.`, 'err');
+  } else {
+    setStatus('Upload failed. Check your connection and try again.', 'err');
+  }
+}
+
+document.getElementById('takePhotoBtn').addEventListener('click', () => document.getElementById('cameraInput').click());
+document.getElementById('chooseGalleryBtn').addEventListener('click', () => document.getElementById('galleryInput').click());
+document.getElementById('cameraInput').addEventListener('change', e => handleFiles(e.target.files));
+document.getElementById('galleryInput').addEventListener('change', e => handleFiles(e.target.files));
+
+document.getElementById('toggleQr').addEventListener('click', () => {
+  const panel = document.getElementById('qrcode');
+  const visible = panel.style.display !== 'none';
+  panel.style.display = visible ? 'none' : 'inline-block';
+  document.getElementById('toggleQr').textContent = visible ? 'Show QR code for printing / display' : 'Hide QR code';
+  if (!visible && !panel.dataset.rendered){
+    new QRCode(panel, {
+      text: window.location.href,
+      width: 220,
+      height: 220,
+      colorDark: '#2e2925',
+      colorLight: '#ffffff'
+    });
+    panel.dataset.rendered = '1';
+  }
+});
+
+loadConfig();
+</script>
+</body>
+</html>
